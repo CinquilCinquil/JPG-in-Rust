@@ -7,26 +7,32 @@ type YCCColorSpace = (u8, u8, u8);
 type Pixel = (u32, u32, Rgba<u8>);
 
 pub fn encode(filepath : &str) {
-    let mut img = pre_processing(filepath);
+    match pre_processing(filepath) {
+        Ok(img) => {
+            let crominance_values = colorspace_conversion(&img);
 
-    let crominance_values = colorspace_conversion(&img);
+            split_into_blocks(&crominance_values);
 
-    split_into_blocks(&crominance_values);
+            discrete_cosine_transform(&mut img);
 
-    discrete_cosine_transform(&mut img);
+            quantization(&mut img);
 
-    quantization(&mut img);
+            statistical_enconding(&mut img);
 
-    statistical_enconding(&mut img);
-
-    save_image(&mut img);
+            save_image(&mut img);
+        }
+        Err(error) => println!("{}", error),
+    }
 }
 
 // Step 0
-pub fn pre_processing(filepath : &str) -> Image {
+pub fn pre_processing(filepath : &str) -> Result<Image, String> {
     match image::open(filepath) {
-        Ok(img) => return img,
-        Err(_) => panic!("Error reading image!!!")
+        Ok(img) => Ok(img),
+        Err(error) => Err(format!(
+            "We can't open the image: {}. Try again.",
+            error
+        )),
     }
 }
 
