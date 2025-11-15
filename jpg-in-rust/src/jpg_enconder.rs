@@ -4,8 +4,8 @@ use image::Rgba;
 
 type Image = DynamicImage;
 type YCCColorSpace = (u8, u8, u8);
-type ImageBlock = Vec<(u8, u8, u8)>;
-type ImageInBlocks = (Vec<ImageBlock>, Vec<ImageBlock>, Vec<ImageBlock>);
+type ImageBlock<T> = Vec<T>;
+type ImageInBlocks<T> = (Vec<ImageBlock<T>>, Vec<ImageBlock<T>>, Vec<ImageBlock<T>>);
 type Pixel = (u32, u32, Rgba<u8>);
 
 pub fn encode(filepath : &str) {
@@ -15,9 +15,9 @@ pub fn encode(filepath : &str) {
 
             let blocks = split_into_blocks(&crominance_values);
 
-            discrete_cosine_transform(blocks);
+            let dct_blocks = discrete_cosine_transform(blocks);
 
-            quantization(&mut img);
+            quantization(dct_blocks);
 
             statistical_enconding(&mut img);
 
@@ -68,17 +68,55 @@ pub fn colorspace_conversion(img : &Image) -> Vec<YCCColorSpace> {
     - Recalculate the RGB values for the image
     - Return 8x8 blocks of the image in RGB
 */
-pub fn split_into_blocks(img : &Vec<YCCColorSpace>) -> ImageInBlocks {
+pub fn split_into_blocks(img : &Vec<YCCColorSpace>) -> ImageInBlocks<u8> {
     todo!()
 }
 
 // Step 4
-pub fn discrete_cosine_transform(img_blocks : ImageInBlocks) {
-    todo!()
+pub fn discrete_cosine_transform(img_blocks : ImageInBlocks<u8>) -> ImageInBlocks<f64> {
+
+    fn do_dct(blocks : Vec<ImageBlock<u8>>) -> Vec<ImageBlock<f64>> {
+        let mut new_blocks : Vec<ImageBlock<f64>> = vec![];
+        let alpha_constant = 1.0 / 2.0_f64.sqrt();
+        let pi = std::f64::consts::PI;
+
+        for block in blocks {
+
+            // Applying transformations block by block
+
+            let mut new_block : ImageBlock<f64> = vec![];
+            for i in 0..8 { for j in 0..8 {
+
+                // Shifting values from [0, 255] to [-128, 127]
+                let mut value = block[i + j * 8] as f64 - 128.0;
+
+                // Calculating DCT matrix
+                let alpha = |i| { if i == 0 {alpha_constant} else {1.0} }; /* normalization function */
+                let _g = |i, j| {
+                    let mut sum = 0.0;
+                    for x in 0..8 { for y in 0..8 {
+                        let part1 = ((2.0 * x as f64 + 1.0) * i as f64 * pi / 16.0).cos();
+                        let part2 = ((2.0 * y as f64 + 1.0) * j as f64 * pi / 16.0).cos();
+                        sum += value * part1 * part2;
+                    }}
+                    return sum;
+                };
+
+                value = (0.25) * alpha(i) * alpha(j) * _g(i, j);
+                new_block.push(value);
+            }}
+
+            new_blocks.push(new_block);
+        }
+
+        return new_blocks;
+    }
+
+    return (do_dct(img_blocks.0), do_dct(img_blocks.1), do_dct(img_blocks.2));
 }
 
 // Step 5
-pub fn quantization(img : &mut Image) {
+pub fn quantization(img_blocks : ImageInBlocks<f64>) {
     todo!()
 }
 
