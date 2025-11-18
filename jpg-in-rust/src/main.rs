@@ -1,5 +1,7 @@
 use std::env;
-mod jpg_enconder;
+mod types;
+mod enconder;
+mod decoder;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -9,5 +11,5 @@ fn main() {
 
     let filepath = &args[1];
 
-    jpg_enconder::encode(filepath);
+    enconder::encode(filepath);
 }

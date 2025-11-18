@@ -1,12 +1,6 @@
 use image::GenericImageView;
-use image::DynamicImage;
-use image::Rgba;
 
-type Image = DynamicImage;
-type YCbCrColorSpace = (u8, u8, u8);
-type ImageBlock<T> = Vec<T>;
-type ImageInBlocks<T> = (Vec<ImageBlock<T>>, Vec<ImageBlock<T>>, Vec<ImageBlock<T>>);
-type Pixel = (u32, u32, Rgba<u8>);
+use crate::types::{Image, YCbCrColorSpace, Pixel, ImageInBlocks, ImageBlock};
 
 pub fn encode(filepath : &str) {
     match pre_processing(filepath) {
