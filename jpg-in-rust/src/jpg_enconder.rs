@@ -3,7 +3,7 @@ use image::DynamicImage;
 use image::Rgba;
 
 type Image = DynamicImage;
-type YCCColorSpace = (u8, u8, u8);
+type YCbCrColorSpace = (u8, u8, u8);
 type ImageBlock<T> = Vec<T>;
 type ImageInBlocks<T> = (Vec<ImageBlock<T>>, Vec<ImageBlock<T>>, Vec<ImageBlock<T>>);
 type Pixel = (u32, u32, Rgba<u8>);
@@ -41,11 +41,11 @@ pub fn pre_processing(filepath : &str) -> Result<Image, String> {
 /* Step 1
     - Convert from RGB colorspace into Y Cb Cr
 */
-pub fn colorspace_conversion(img : &Image) -> Vec<YCCColorSpace> {
+pub fn colorspace_conversion(img : &Image) -> Vec<YCbCrColorSpace> {
     let pixels = img.pixels();
     let (w, h) = img.dimensions();
 
-    let mut crominance_values : Vec<YCCColorSpace> = vec![(0, 0, 0); (w * h) as usize];
+    let mut crominance_values : Vec<YCbCrColorSpace> = vec![(0, 0, 0); (w * h) as usize];
     let red = |pixel : Pixel| {pixel.2.0[0] as f64};
     let blue = |pixel : Pixel| {pixel.2.0[1] as f64};
     let green = |pixel : Pixel| {pixel.2.0[2] as f64};
@@ -68,7 +68,7 @@ pub fn colorspace_conversion(img : &Image) -> Vec<YCCColorSpace> {
     - Recalculate the RGB values for the image
     - Return 8x8 blocks of the image in RGB
 */
-pub fn split_into_blocks(img : &Vec<YCCColorSpace>) -> ImageInBlocks<u8> {
+pub fn split_into_blocks(img : &Vec<YCbCrColorSpace>) -> ImageInBlocks<u8> {
     todo!()
 }
 
