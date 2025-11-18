@@ -72,7 +72,7 @@ pub fn split_into_blocks(img : &Vec<YCCColorSpace>) -> ImageInBlocks<u8> {
     todo!()
 }
 
-// Step 4
+// Step 3
 pub fn discrete_cosine_transform(img_blocks : ImageInBlocks<u8>) -> ImageInBlocks<f64> {
 
     fn do_dct(blocks : Vec<ImageBlock<u8>>) -> Vec<ImageBlock<f64>> {
@@ -115,17 +115,17 @@ pub fn discrete_cosine_transform(img_blocks : ImageInBlocks<u8>) -> ImageInBlock
     return (do_dct(img_blocks.0), do_dct(img_blocks.1), do_dct(img_blocks.2));
 }
 
-// Step 5
+// Step 4
 pub fn quantization(img_blocks : ImageInBlocks<f64>) {
     todo!()
 }
 
-// Step 6
+// Step 5
 pub fn statistical_enconding(img : &mut Image) {
     todo!()
 }
 
-// Step 7
+// Step 6
 pub fn save_image(img : &mut Image) {
     todo!()
 }
