@@ -1,6 +1,6 @@
 use std::env;
 mod types;
-mod enconder;
+mod encoder;
 mod decoder;
 
 fn main() {
@@ -11,5 +11,5 @@ fn main() {
 
     let filepath = &args[1];
 
-    enconder::encode(filepath);
+    encoder::encode(filepath);
 }
