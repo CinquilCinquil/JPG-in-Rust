@@ -65,7 +65,25 @@ pub fn colorspace_conversion(img : &Image) -> Vec<YCbCrColorSpace> {
     - Return 8x8 blocks of the image in RGB
 */
 pub fn split_into_blocks(img : &Vec<YCbCrColorSpace>) -> ImageInBlocks<u8> {
-    todo!()
+    
+    let mut avg_Cb: Vec<u8> = Vec::new();
+    let mut avg_Cr: Vec<u8> = Vec::new();
+    for chunk in (*img).chunks(4) {
+        let mut sum_Cb: u64 = 0;
+        let mut sum_Cr: u64 = 0;
+        for &(_, Cb, Cr) in chunk {
+            sum_Cb += Cb;
+            sum_Cr += Cr;
+        }
+        avg_Cb.push((sum_Cb/chunk.len()) as u8);
+        avg_Cr.push((sum_Cr/chunk.len()) as u8);
+    }
+    let Y: Vec<u8> = img.iter().map(|(x, _, _)| *x).collect();
+
+    //Recalculate here
+    (Y, avg_Cb, avg_Cr)
+
+    //todo!()
 }
 
 // Step 3
