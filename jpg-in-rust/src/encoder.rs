@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use image::GenericImageView;
 
-use crate::types::{Image, YCbCrColorSpace, Pixel, ImageInBlocks, ImageBlock};
+use crate::types::{Image, YCbCrColorSpace, Pixel, ImageInBlocks, ImageBlock, 
+    HuffmanTree, HuffmanEncodedBlocks};
 
 pub fn encode(filepath : &str) {
     match pre_processing(filepath) {
@@ -11,9 +13,9 @@ pub fn encode(filepath : &str) {
 
             let dct_blocks = discrete_cosine_transform(blocks);
 
-            quantization(dct_blocks);
+            let quantized_blocks = quantization(dct_blocks);
 
-            statistical_enconding(&mut img);
+            statistical_enconding(quantized_blocks);
 
             save_image(&mut img);
         }
@@ -110,13 +112,125 @@ pub fn discrete_cosine_transform(img_blocks : ImageInBlocks<u8>) -> ImageInBlock
 }
 
 // Step 4
-pub fn quantization(img_blocks : ImageInBlocks<f64>) {
+pub fn quantization(img_blocks : ImageInBlocks<f64>) -> ImageInBlocks<i8> {
     todo!()
 }
 
 // Step 5
-pub fn statistical_enconding(img : &mut Image) {
-    todo!()
+pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBlocks {
+
+    // Stores values in each block following a Zig Zag pattern
+    fn get_values_in_zigzag(block : ImageBlock<i8>) -> Vec<i8> {
+        let path_lengths = [1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1];
+        let mut values : Vec<i8> = vec![];
+
+        let mut x : i8 = 0;
+        let mut y : i8 = 0;
+        let mut step : i8 = 1;
+
+        for i in 0..path_lengths.len() {
+            let path_length = path_lengths[i];
+            step *= -1;
+
+            for j in 0..path_length {
+
+                values.push(block[x as usize + 8 * y as usize]);
+
+                if i < path_lengths.len()/2 {
+                    x += step;
+                    y -= step;
+                }
+                else if j == path_length - 1 {
+                    let step_rotated = if x < y {-step} else {step};
+                    x += step_rotated;
+                    y += step_rotated;
+                }
+
+                x = x.clamp(0, 7);
+                y = y.clamp(0, 7);
+            }
+        }
+
+        return values;
+    }
+
+    // Stores a sequence of integers as tuples of (interger, frequency)
+    // Ex: 1, 1, 2, 0, 4, 0, 0 becomes (1, 2), (2, 1), (0, 1) (4, 1) (0, 2)
+    fn run_length_enconding(values : Vec<i8>) -> Vec<(i8, i8)> {
+
+        let mut run_length_values : Vec<(i8, i8)> = vec![];
+        let mut n = 1;
+
+        for i in 0..values.len() - 1 {
+            if values[i] == values[i + 1] {
+                n += 1;
+            }
+            else {
+                run_length_values.push((values[i], n));
+                n = 1;
+            }
+        }
+
+        return run_length_values;
+    }
+
+    fn huffman_enconding(run_length_values : Vec<(i8, i8)>) -> (Vec<u8>, HuffmanTree) {
+        let mut frequencies : HashMap<(i8, i8), i8> = HashMap::new();
+
+        // Gathering frequencies
+        for value in &run_length_values {
+            let entry = frequencies.entry(*value).or_insert(0);
+            *entry += 1;
+        }
+
+        // Ordering frequencies
+        let mut frequencies_vec: Vec<(&(i8, i8), &i8)> = frequencies.iter().collect();
+        frequencies_vec.sort_by(|a, b| b.1.cmp(a.1));
+
+        // Building Tree
+
+        let mut nodes : Vec<HuffmanTree> = vec![];
+        for value in frequencies_vec {
+            let node_value = (value.0.0, value.0.1);
+            let frequency = *value.1;
+            nodes.push(HuffmanTree{value : node_value, frequency : frequency, children : vec![]});
+        }
+
+        let mut enconded_values : HashMap<(i8, i8), u8> = HashMap::new();
+        while nodes.len() > 2 {
+            todo!();
+        }
+
+        // Not actual node, just start of tree
+        let mut root = HuffmanTree{value : (0, 0), frequency : 0, children : nodes};
+
+        // Replacing values with new words
+        let mut new_run_length_values : Vec<u8> = vec![];
+        for value in run_length_values {
+            new_run_length_values.push(enconded_values[&value]);
+        }
+
+        return (new_run_length_values, root);
+    }
+
+    // This function applies the previously defined functions in all blocks of 'img_blocks'
+    fn final_func(img_blocks : Vec<ImageBlock<i8>>) -> Vec<(Vec<u8>, HuffmanTree)> {
+        let mut huffman_encoded_blocks : Vec<(Vec<u8>, HuffmanTree)> = vec![];
+
+        for block in img_blocks {
+            let huffman_encoded_block = huffman_enconding(
+                run_length_enconding(
+                    get_values_in_zigzag(block)
+                )
+            );
+
+            huffman_encoded_blocks.push(huffman_encoded_block);
+        }
+
+        return huffman_encoded_blocks;
+    }
+
+    return (final_func(img_blocks.0), final_func(img_blocks.1), final_func(img_blocks.2));
 }
 
 // Step 6
