@@ -8,8 +8,8 @@ pub fn encode(filepath : &str) {
     match pre_processing(filepath) {
         Ok(mut img) => {
             let crominance_values = colorspace_conversion(&img);
-
-            let blocks = split_into_blocks(&crominance_values);
+            let (width, height) = img.dimensions();
+            let blocks = split_into_blocks(&crominance_values, width, height);
 
             let dct_blocks = discrete_cosine_transform(blocks);
 
@@ -59,31 +59,34 @@ pub fn colorspace_conversion(img : &Image) -> Vec<YCbCrColorSpace> {
 }
 
 /* Step 2
-    - Divide the Cb and Cr vectors into 2x2 blocks
+    - Divide the Cb and Cr vectors into 2x2 blocks 
     - Make each of the 4 blocks the same value: The average between them
     - Recalculate the RGB values for the image
     - Return 8x8 blocks of the image in RGB
 */
-pub fn split_into_blocks(img : &Vec<YCbCrColorSpace>) -> ImageInBlocks<u8> {
+pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : usize , height: usize) -> ImageInBlocks<u8> {
     
-    let mut avg_Cb: Vec<u8> = Vec::new();
-    let mut avg_Cr: Vec<u8> = Vec::new();
-    for chunk in (*img).chunks(4) {
-        let mut sum_Cb: u64 = 0;
-        let mut sum_Cr: u64 = 0;
-        for &(_, Cb, Cr) in chunk {
-            sum_Cb += Cb;
-            sum_Cr += Cr;
+    let Y: Vec<u8> = ycbcr.iter().map(|(y, _, _)| *y).collect();
+    let mut Cb = Vec::with_capacity((width/2) * (height/2));
+    let mut Cr = Vec::with_capacity((width/2) * (height/2));
+
+    for h in (0..height).step_by(2) {
+        for w in (0..width).step_by(2) {
+
+            //Take the value of 2x2 blocks
+            let (_, cb0, cr0) = ycbcr[h * width + w];
+            let (_, cb1, cr1) = ycbcr[h * width + (w + 1)];
+            let (_, cb2, cr2) = ycbcr[(h + 1) * width + w];
+            let (_, cb3, cr3) = ycbcr[(h + 1) * width + (w + 1)];
+
+            let avg_cb = ((cb0 as u16 + cb1 as u16 + cb2 as u16 + cb3 as u16) / 4) as u8;
+            let avg_cr = ((cr0 as u16 + cr1 as u16 + cr2 as u16 + cr3 as u16) / 4) as u8;
+
+            Cb.push(avg_cb);
+            Cr.push(avg_cr);
         }
-        avg_Cb.push((sum_Cb/chunk.len()) as u8);
-        avg_Cr.push((sum_Cr/chunk.len()) as u8);
     }
-    let Y: Vec<u8> = img.iter().map(|(x, _, _)| *x).collect();
 
-    //Recalculate here
-    (Y, avg_Cb, avg_Cr)
-
-    //todo!()
 }
 
 // Step 3
