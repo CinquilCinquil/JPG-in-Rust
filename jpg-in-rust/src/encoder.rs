@@ -218,8 +218,27 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         }
 
         let mut enconded_values : HashMap<(i8, i8), u8> = HashMap::new();
+        let msg = "(??) huffman_enconding: Unable to move first two elements of list with len() > 2";
         while nodes.len() > 2 {
-            todo!();
+            
+            let combined_frequency = nodes[0].frequency + nodes[1].frequency;
+            let new_node = HuffmanTree{
+                value : (0, 0),
+                frequency : combined_frequency,
+                children : vec![nodes.pop().expect(msg), nodes.pop().expect(msg)] // nodes[0] and nodes[1]
+            }
+
+            // Find correct position in list
+            for i in 0..nodes.len() {
+                if combined_frequency <= nodes[i].frequency {
+                    nodes.insert(i, new_node);
+                    break;
+                }
+                else if i == nodes.len() - 1 {
+                    nodes.push(new_node);
+                    break;
+                }
+            }
         }
 
         // Not actual node, just start of tree
@@ -239,13 +258,9 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         let mut huffman_encoded_blocks : Vec<(Vec<u8>, HuffmanTree)> = vec![];
 
         for block in img_blocks {
-            let huffman_encoded_block = huffman_enconding(
-                run_length_enconding(
-                    get_values_in_zigzag(block)
-                )
+            huffman_encoded_blocks.push(
+                huffman_enconding(run_length_enconding(get_values_in_zigzag(block)))
             );
-
-            huffman_encoded_blocks.push(huffman_encoded_block);
         }
 
         return huffman_encoded_blocks;
