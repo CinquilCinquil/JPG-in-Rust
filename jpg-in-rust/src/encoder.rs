@@ -157,16 +157,16 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
 
                 values.push(block[x as usize + 8 * y as usize]);
 
-                if i < path_lengths.len()/2 {
-                    x += step;
-                    y -= step;
-                }
-                else if j == path_length - 1 {
-                    let step_rotated = if x < y {-step} else {step};
+                if i >= path_lengths.len()/2 && if j == path_length - 1 {
+                    let step_rotated = if y < x {-step} else {step};
                     x += step_rotated;
                     y += step_rotated;
                 }
-
+                else {
+                    x -= step;
+                    y += step;
+                }
+                
                 x = x.clamp(0, 7);
                 y = y.clamp(0, 7);
             }
