@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use image::GenericImageView;
+use itertools::izip;
 
 use crate::types::{Image, YCbCrColorSpace, Pixel, ImageInBlocks, ImageBlock, 
     HuffmanTree, HuffmanEncodedBlocks};
@@ -8,8 +9,9 @@ pub fn encode(filepath : &str) {
     match pre_processing(filepath) {
         Ok(mut img) => {
             let crominance_values = colorspace_conversion(&img);
+
             let (width, height) = img.dimensions();
-            let blocks = split_into_blocks(&crominance_values, width, height);
+            let blocks = split_into_blocks(&crominance_values, width as usize, height as usize);
 
             let dct_blocks = discrete_cosine_transform(blocks);
 
@@ -66,7 +68,7 @@ pub fn colorspace_conversion(img : &Image) -> Vec<YCbCrColorSpace> {
 */
 pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : usize , height: usize) -> ImageInBlocks<u8> {
     
-    let Y: Vec<u8> = ycbcr.iter().map(|(y, _, _)| *y).collect();
+    let Y_Image: ImageBlock<u8> = ycbcr.iter().map(|(y, _, _)| *y).collect();
     let mut Cb = Vec::with_capacity((width/2) * (height/2));
     let mut Cr = Vec::with_capacity((width/2) * (height/2));
 
@@ -86,7 +88,61 @@ pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : usize , height: 
             Cr.push(avg_cr);
         }
     }
+    
+    let Cb_Image: ImageBlock<u8> = Cb.iter().flat_map(|&cb| std::iter::repeat(cb).take(4)).collect();
 
+    let Cr_Image: ImageBlock<u8> = Cr.iter().flat_map(|&cr| std::iter::repeat(cr).take(4)).collect();
+
+    let mut R: ImageBlock<u8> = ImageBlock::with_capacity(Y_Image.len());
+    let mut G: ImageBlock<u8> = ImageBlock::with_capacity(Y_Image.len());
+    let mut B: ImageBlock<u8> = ImageBlock::with_capacity(Y_Image.len());
+
+    //let ycbcr_iter = Y_Image.iter().zip(Cb_Image.iter().zip(Cr_Image.iter()));
+    for (y, cb, cr) in izip!(Y_Image.iter(), Cb_Image.iter(), Cr_Image.iter()) {
+        let (r, g, b) = ycbcr_to_RGB(*y, *cb, *cr);
+        R.push(r);
+        G.push(g);
+        B.push(b);
+    }
+
+    let r_block = convert_in_blocks(&R, width, height);
+    let g_block = convert_in_blocks(&G, width, height);
+    let b_block = convert_in_blocks(&B, width, height);
+
+    (r_block, g_block, b_block)
+}
+
+fn convert_in_blocks(channel: &ImageBlock<u8>, width : usize, height : usize) -> Vec<ImageBlock<u8>> {
+
+    let mut blocks = Vec::new();
+    
+    for block_y in (0..height).step_by(8) {
+        for block_x in (0..width).step_by(8) {
+            let mut block = ImageBlock::new();
+            
+            for y in block_y..(block_y + 8).min(height) {
+                for x in block_x..(block_x + 8).min(width) {
+                    let pixel = channel[y * width + x];
+                    block.push(pixel);
+                }
+            }
+            blocks.push(block);
+        }
+    }
+    
+    blocks
+}
+
+fn ycbcr_to_RGB(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
+    let y_f = y as f64;
+    let cb_f = cb as f64 - 128.0;
+    let cr_f = cr as f64 - 128.0;
+
+    let r = y_f + 1.402 * cr_f;
+    let g = y_f - 0.344136 * cb_f - 0.714136 * cr_f;
+    let b = y_f + 1.772 * cb_f;
+
+    (r as u8, b as u8, g as u8)
 }
 
 // Step 3
@@ -226,7 +282,7 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
                 value : (0, 0),
                 frequency : combined_frequency,
                 children : vec![nodes.pop().expect(msg), nodes.pop().expect(msg)] // nodes[0] and nodes[1]
-            }
+            };
 
             // Find correct position in list
             for i in 0..nodes.len() {
