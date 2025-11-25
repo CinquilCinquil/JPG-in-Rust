@@ -190,7 +190,58 @@ pub fn discrete_cosine_transform(img_blocks : ImageInBlocks<u8>) -> ImageInBlock
 
 // Step 4
 pub fn quantization(img_blocks : ImageInBlocks<f64>) -> ImageInBlocks<i8> {
-    todo!()
+    let LUMINANCE_QUANTIZATION_TABLE: [u8; 64] = [
+        4, 3, 4, 4, 4, 6, 11, 15,
+        3, 3, 3, 4, 5, 8, 14, 19,
+        3, 4, 4, 5, 8, 12, 16, 20,
+        4, 5, 6, 7, 12, 14, 18, 20,
+        6, 6, 9, 11, 14, 17, 21, 23,
+        9, 12, 12, 18, 23, 22, 25, 21,
+        11, 13, 15, 17, 21, 23, 25, 21,
+        13, 12, 12, 13, 16, 19, 21, 21,
+    ];
+    let CHROMINANCE_QUANTIZATION_TABLE: [u8; 64] = [
+        4, 4, 6, 10, 21, 21, 21, 21,
+        4, 5, 6, 21, 21, 21, 21, 21,
+        6, 6, 12, 21, 21, 21, 21, 21,
+        10, 14, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21,
+        21, 21, 21, 21, 21, 21, 21, 21,
+    ];
+
+    let mut new_r: Vec<ImageBlock<i8>> = Vec::new();
+    let mut new_g: Vec<ImageBlock<i8>> = Vec::new();
+    let mut new_b: Vec<ImageBlock<i8>> = Vec::new();
+
+    for i in 0..img_blocks.0.len() {
+        let block_r = &img_blocks.0[i]; 
+        let mut quantized_block_r = ImageBlock::new();
+
+        let block_g = &img_blocks.1[i]; 
+        let mut quantized_block_g = ImageBlock::new();
+
+        let block_b = &img_blocks.2[i]; 
+        let mut quantized_block_b = ImageBlock::new();
+        
+        for j in 0..block_r.len() {
+            let quant_value_r = (block_r[j] / LUMINANCE_QUANTIZATION_TABLE[j] as f64).round() as i8;
+            quantized_block_r.push(quant_value_r);
+
+            let quant_value_g = (block_g[j] / CHROMINANCE_QUANTIZATION_TABLE[j] as f64).round() as i8;
+            quantized_block_g.push(quant_value_g);
+
+            let quant_value_b = (block_b[j] / CHROMINANCE_QUANTIZATION_TABLE[j] as f64).round() as i8;
+            quantized_block_b.push(quant_value_b);
+        }
+        
+        new_r.push(quantized_block_r);
+        new_g.push(quantized_block_g);
+        new_b.push(quantized_block_b);
+    }
+    (new_r, new_g, new_b)
+    //todo!()
 }
 
 // Step 5
