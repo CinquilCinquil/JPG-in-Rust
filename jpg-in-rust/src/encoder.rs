@@ -19,7 +19,7 @@ pub fn encode(filepath : &str) {
 
             statistical_enconding(quantized_blocks);
 
-            save_image(&mut img);
+            save_compressed(&mut img);
         }
         Err(error) => println!("{}", error),
     }
@@ -377,6 +377,6 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
 }
 
 // Step 6
-pub fn save_image(img : &mut Image) {
+pub fn save_compressed(img : &mut Image) {
     todo!()
 }
