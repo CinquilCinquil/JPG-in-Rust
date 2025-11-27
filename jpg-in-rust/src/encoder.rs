@@ -11,7 +11,7 @@ pub fn encode(filepath : &str) {
             let crominance_values = colorspace_conversion(&img);
 
             let (width, height) = img.dimensions();
-            let blocks = split_into_blocks(&crominance_values, width as usize, height as usize);
+            let blocks = split_into_blocks(&crominance_values, width, height);
 
             let dct_blocks = discrete_cosine_transform(blocks);
 
@@ -66,67 +66,120 @@ pub fn colorspace_conversion(img : &Image) -> Vec<YCbCrColorSpace> {
     - Recalculate the RGB values for the image
     - Return 8x8 blocks of the image in RGB
 */
-pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : usize , height: usize) -> ImageInBlocks<u8> {
-    
-    let Y_Image: ImageBlock<u8> = ycbcr.iter().map(|(y, _, _)| *y).collect();
-    let mut Cb = Vec::with_capacity((width/2) * (height/2));
-    let mut Cr = Vec::with_capacity((width/2) * (height/2));
+pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : u32 , height: u32) -> ImageInBlocks<u8> {
+    let width_usize = width as usize;
+    let height_usize = height as usize;
 
-    for h in (0..height).step_by(2) {
-        for w in (0..width).step_by(2) {
+    let y_image: ImageBlock<u8> = ycbcr.iter().map(|(y, _, _)| *y).collect();
+    let mut cb = Vec::with_capacity((width_usize/2) * (height_usize/2));
+    let mut cr = Vec::with_capacity((width_usize/2) * (height_usize/2));
+
+    println!("height: {height}, width: {width}");
+
+    let horizontal :u32 = if (width + 7) % 8 == 0 {
+        (width + 7) / 8
+    }
+    else {
+        (width + 7) / 8 + 1
+    };
+    let vertical : u32 = if (height + 7) % 8 == 0 {
+        (height + 7) / 8
+    }
+    else {
+        (height + 7) / 8 + 1
+    };
+    println!("horizon: {horizontal}, vertical: {vertical}");
+
+    for h in (0..height_usize).step_by(2) {
+        for w in (0..width_usize).step_by(2) {
 
             //Take the value of 2x2 blocks
-            let (_, cb0, cr0) = ycbcr[h * width + w];
-            let (_, cb1, cr1) = ycbcr[h * width + (w + 1)];
-            let (_, cb2, cr2) = ycbcr[(h + 1) * width + w];
-            let (_, cb3, cr3) = ycbcr[(h + 1) * width + (w + 1)];
+            let (_, cb0, cr0) = ycbcr[h * width_usize + w];
+            let (_, cb1, cr1) = ycbcr[h * width_usize + (w + 1)];
+            let (_, cb2, cr2) = ycbcr[(h + 1) * width_usize + w];
+            let (_, cb3, cr3) = ycbcr[(h + 1) * width_usize + (w + 1)];
 
             let avg_cb = ((cb0 as u16 + cb1 as u16 + cb2 as u16 + cb3 as u16) / 4) as u8;
             let avg_cr = ((cr0 as u16 + cr1 as u16 + cr2 as u16 + cr3 as u16) / 4) as u8;
 
-            Cb.push(avg_cb);
-            Cr.push(avg_cr);
+            cb.push(avg_cb);
+            cr.push(avg_cr);
         }
     }
     
-    let Cb_Image: ImageBlock<u8> = Cb.iter().flat_map(|&cb| std::iter::repeat(cb).take(4)).collect();
+    let cb_image: ImageBlock<u8> = cb.iter().flat_map(|&chro_b| std::iter::repeat(chro_b).take(4)).collect();
 
-    let Cr_Image: ImageBlock<u8> = Cr.iter().flat_map(|&cr| std::iter::repeat(cr).take(4)).collect();
+    let cr_image: ImageBlock<u8> = cr.iter().flat_map(|&chro_r| std::iter::repeat(chro_r).take(4)).collect();
 
-    let mut R: ImageBlock<u8> = ImageBlock::with_capacity(Y_Image.len());
-    let mut G: ImageBlock<u8> = ImageBlock::with_capacity(Y_Image.len());
-    let mut B: ImageBlock<u8> = ImageBlock::with_capacity(Y_Image.len());
+    let mut r_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
+    let mut g_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
+    let mut b_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
 
-    //let ycbcr_iter = Y_Image.iter().zip(Cb_Image.iter().zip(Cr_Image.iter()));
-    for (y, cb, cr) in izip!(Y_Image.iter(), Cb_Image.iter(), Cr_Image.iter()) {
+    //let ycbcr_iter = y_image.iter().zip(Cb_Image.iter().zip(Cr_Image.iter()));
+    for (y, cb, cr) in izip!(y_image.iter(), cb_image.iter(), cr_image.iter()) {
         let (r, g, b) = ycbcr_to_RGB(*y, *cb, *cr);
-        R.push(r);
-        G.push(g);
-        B.push(b);
+        r_block.push(r);
+        g_block.push(g);
+        b_block.push(b);
     }
 
-    let r_block = convert_in_blocks(&R, width, height);
+    /*let r_block = convert_in_blocks(&R, width, height);
     let g_block = convert_in_blocks(&G, width, height);
-    let b_block = convert_in_blocks(&B, width, height);
+    let b_block = convert_in_blocks(&B, width, height);*/
 
-    (r_block, g_block, b_block)
+    (convert_in_blocks(&r_block, width, height, horizontal, vertical), convert_in_blocks(&g_block, width, height, horizontal, vertical), convert_in_blocks(&b_block, width, height, horizontal, vertical))
 }
 
-fn convert_in_blocks(channel: &ImageBlock<u8>, width : usize, height : usize) -> Vec<ImageBlock<u8>> {
-
-    let mut blocks = Vec::new();
+fn convert_in_blocks(channel: &ImageBlock<u8>, width : u32, height : u32, horizontal : u32, vertical : u32) -> Vec<ImageBlock<u8>> {
     
-    for block_y in (0..height).step_by(8) {
-        for block_x in (0..width).step_by(8) {
-            let mut block = ImageBlock::new();
+    let mut blocks = Vec::new();
+    let mut count = 0;
+    //pub type ImageBlock<T> = Vec<T>;
+    //pub type ImageInBlocks<T> = (Vec<ImageBlock<T>>, Vec<ImageBlock<T>>, Vec<ImageBlock<T>>);
+    /*
+    ╔══════════════════════════════════════╗
+    ║  A00 A01 A02 A03 A04 A05 A06 A07 B08 ║
+    ║  A10 A11 A12 A13 A14 A15 A16 A17 B18 ║
+    ║  A20 A21 A22 A23 A24 A25 A26 A27 B28 ║
+    ║  A30 A31 A32 A33 A34 A35 A36 A37 B38 ║
+    ║  A40 A41 A42 A43 A44 A45 A46 A47 B48 ║
+    ║  A50 A51 A52 A53 A54 A55 A56 A57 B58 ║
+    ║  A60 A61 A62 A63 A64 A65 A66 A67 B68 ║
+    ║  A70 A71 A72 A73 A74 A75 A76 A77 B78 ║
+    ║  B80 B81 B82 B83 B84 B85 B86 B87 B88 ║
+    ╚══════════════════════════════════════╝
+    */
+    for y_block in 0..vertical {
+        for x_block in 0..horizontal {
+            let mut block = Vec::with_capacity(64); 
             
-            for y in block_y..(block_y + 8).min(height) {
-                for x in block_x..(block_x + 8).min(width) {
-                    let pixel = channel[y * width + x];
-                    block.push(pixel);
+            for i in 0..8 {
+                let y_image = y_block * 8 + i;
+                
+                for j in 0..8 {
+                    let x_image = x_block * 8 + j;
+                    
+                    let index = (y_image * width + x_image) as usize;
+                    
+                    if y_image < height && x_image < width {
+                        block.push(channel[index]);
+                    } 
+                    else {
+                        block.push(0); 
+                    }
+                }
+            }
+            if count == 0 {
+                for i in 0..8 {
+                    for j in 0..8 {
+                        let index = i * 8 + j;
+                    print!(" {}", block[index]);
+                    }
+                    println!{""};
                 }
             }
             blocks.push(block);
+            count = 1;
         }
     }
     
