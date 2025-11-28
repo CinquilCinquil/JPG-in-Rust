@@ -133,7 +133,7 @@ pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : u32 , height: u3
 fn convert_in_blocks(channel: &ImageBlock<u8>, width : u32, height : u32, horizontal : u32, vertical : u32) -> Vec<ImageBlock<u8>> {
     
     let mut blocks = Vec::new();
-    let mut count = 0;
+    //let mut count = 0;
     //pub type ImageBlock<T> = Vec<T>;
     //pub type ImageInBlocks<T> = (Vec<ImageBlock<T>>, Vec<ImageBlock<T>>, Vec<ImageBlock<T>>);
     /*
@@ -169,7 +169,10 @@ fn convert_in_blocks(channel: &ImageBlock<u8>, width : u32, height : u32, horizo
                     }
                 }
             }
-            if count == 0 {
+            /*if count == 0 {
+                
+            }*/
+            if block.len() != 64 {
                 for i in 0..8 {
                     for j in 0..8 {
                         let index = i * 8 + j;
@@ -178,11 +181,12 @@ fn convert_in_blocks(channel: &ImageBlock<u8>, width : u32, height : u32, horizo
                     println!{""};
                 }
             }
+            //println!("{}", block.len());
             blocks.push(block);
-            count = 1;
+            //count = 1;
         }
     }
-    
+    println!("{}", blocks.len());
     blocks
 }
 
@@ -341,6 +345,7 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
 
         let mut run_length_values : Vec<(i8, i8)> = vec![];
         let mut n = 1;
+        let lenght = values.len();
 
         for i in 0..values.len() - 1 {
             if values[i] == values[i + 1] {
@@ -351,8 +356,10 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
                 n = 1;
             }
         }
-
-        return run_length_values;
+        if values[lenght - 1] != values[lenght - 2] {
+            run_length_values.push((values[lenght - 1], 1));
+        } 
+        run_length_values
     }
 
     fn huffman_enconding(run_length_values : Vec<(i8, i8)>) -> (Vec<u8>, HuffmanTree) {
@@ -406,8 +413,8 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
 
         // Replacing values with new words
         let mut new_run_length_values : Vec<u8> = vec![];
-        for value in run_length_values {
-            new_run_length_values.push(enconded_values[&value]);
+        for value in &run_length_values {
+            new_run_length_values.push(enconded_values[value]);
         }
 
         return (new_run_length_values, root);
