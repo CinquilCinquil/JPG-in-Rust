@@ -5,6 +5,7 @@ pub fn decode(filepath : &str) {
     match pre_processing(filepath) {
         Ok(mut img) => {
 
+            /*
             statistical_decoding();
 
             undo_dct();
@@ -14,6 +15,7 @@ pub fn decode(filepath : &str) {
             merge_blocks();
 
             save_image();
+            */
 
         }
         Err(error) => println!("{}", error),
@@ -28,7 +30,7 @@ pub fn undo_dct() {
 
 }
 
-/*fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
+pub fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
     let y_f = y as f64;
     let cb_f = cb as f64 - 128.0;
     let cr_f = cr as f64 - 128.0;
@@ -38,7 +40,7 @@ pub fn undo_dct() {
     let b = y_f + 1.772 * cb_f;
 
     (r as u8, b as u8, g as u8)
-}*/
+}
 
 pub fn colorspace_conversion(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
     let y_f = y as f64;

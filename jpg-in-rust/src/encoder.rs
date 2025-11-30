@@ -4,21 +4,28 @@ use itertools::izip;
 
 use crate::types::{Image, YCbCrColorSpace, Pixel, ImageInBlocks, ImageBlock, 
     HuffmanTree, HuffmanEncodedBlocks};
+use crate::decoder::{ycbcr_to_rgb};
 
 pub fn encode(filepath : &str) {
     match pre_processing(filepath) {
         Ok(mut img) => {
+            println!("start colorspace_conversion");
             let crominance_values = colorspace_conversion(&img);
 
+            println!("start split_into_blocks");
             let (width, height) = img.dimensions();
             let blocks = split_into_blocks(&crominance_values, width, height);
 
+            println!("start discrete_cosine_transform");
             let dct_blocks = discrete_cosine_transform(blocks);
 
+            println!("start quantization");
             let quantized_blocks = quantization(dct_blocks);
 
+            println!("start statistical_enconding");
             statistical_enconding(quantized_blocks);
 
+            println!("start save_compressed");
             save_compressed(&mut img);
         }
         Err(error) => println!("{}", error),
@@ -117,7 +124,7 @@ pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : u32 , height: u3
 
     //let ycbcr_iter = y_image.iter().zip(Cb_Image.iter().zip(Cr_Image.iter()));
     for (y, cb, cr) in izip!(y_image.iter(), cb_image.iter(), cr_image.iter()) {
-        let (r, g, b) = ycbcr_to_RGB(*y, *cb, *cr);
+        let (r, g, b) = ycbcr_to_rgb(*y, *cb, *cr);
         r_block.push(r);
         g_block.push(g);
         b_block.push(b);
@@ -394,13 +401,12 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
             nodes.push(HuffmanTree{value : node_value, frequency : frequency, children : vec![]});
         }
 
-        let mut enconded_values : HashMap<(i8, i8), u8> = HashMap::new();
         let msg = "(??) huffman_enconding: Unable to move first two elements of list with len() > 2";
         while nodes.len() > 2 {
             
             let combined_frequency = nodes[0].frequency + nodes[1].frequency;
             let new_node = HuffmanTree{
-                value : (0, 0),
+                value : (0, 0), /* this value indicates its not a leaf */
                 frequency : combined_frequency,
                 children : vec![nodes.pop().expect(msg), nodes.pop().expect(msg)] // nodes[0] and nodes[1]
             };
@@ -418,13 +424,39 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
             }
         }
 
-        // Not actual node, just start of tree
         let mut root = HuffmanTree{value : (0, 0), frequency : 0, children : nodes};
 
-        // Replacing values with new words
+        // Registering encoded values for every node on the tree
+        let mut encoded_values : HashMap<(i8, i8), u8> = HashMap::new();
+        fn walk_tree(node : &HuffmanTree, path : u8, encoded_values : &mut HashMap<(i8, i8), u8>) {
+            if node.value != (0, 0) {
+
+                /* OBS:
+                    walk_tree is being initially called with path = 1.
+                    This yields the correct encoded values in binary, except for a '1'
+                    on the front. So we must remove it.
+                */
+                let first_bit_into_0 = |n| {
+                    let mut i = 1;
+                    while i < n/2 {i *= 2;}
+                    return n - i;
+                };
+
+                encoded_values.insert(node.value, first_bit_into_0(path));
+            }
+            else {
+                walk_tree(&(node.children[0]), path * 2, encoded_values);
+                walk_tree(&(node.children[1]), path * 2 + 1, encoded_values);
+            }
+        }
+
+        walk_tree(&root, 1, &mut encoded_values);
+
+        // Replacing run length values with encoded ones
         let mut new_run_length_values : Vec<u8> = vec![];
         for value in &run_length_values {
-            new_run_length_values.push(enconded_values[value]);
+            new_run_length_values.push(encoded_values[value]);
+            println!("Old value: {value:?}, Encoded value : {:?}", encoded_values[value]);
         }
 
         return (new_run_length_values, root);
