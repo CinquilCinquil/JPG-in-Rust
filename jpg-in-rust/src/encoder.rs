@@ -4,7 +4,7 @@ use itertools::izip;
 
 use crate::types::{Image, YCbCrColorSpace, Pixel, ImageInBlocks, ImageBlock, 
     HuffmanTree, HuffmanEncodedBlocks};
-use crate::decoder::{ycbcr_to_rgb};
+//use crate::decoder::{ycbcr_to_rgb};
 
 pub fn encode(filepath : &str) {
     match pre_processing(filepath) {
@@ -118,23 +118,23 @@ pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : u32 , height: u3
 
     let cr_image: ImageBlock<u8> = cr.iter().flat_map(|&chro_r| std::iter::repeat(chro_r).take(4)).collect();
 
-    let mut r_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
-    let mut g_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
-    let mut b_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
+    let mut y_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
+    let mut cb_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
+    let mut cr_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
 
     //let ycbcr_iter = y_image.iter().zip(Cb_Image.iter().zip(Cr_Image.iter()));
     for (y, cb, cr) in izip!(y_image.iter(), cb_image.iter(), cr_image.iter()) {
-        let (r, g, b) = ycbcr_to_rgb(*y, *cb, *cr);
-        r_block.push(r);
-        g_block.push(g);
-        b_block.push(b);
+        //let (r, g, b) = ycbcr_to_rgb(*y, *cb, *cr);
+        y_block.push(*y);
+        cb_block.push(*cb);
+        cr_block.push(*cr);
     }
 
     /*let r_block = convert_in_blocks(&R, width, height);
     let g_block = convert_in_blocks(&G, width, height);
     let b_block = convert_in_blocks(&B, width, height);*/
 
-    (convert_in_blocks(&r_block, width, height, horizontal, vertical), convert_in_blocks(&g_block, width, height, horizontal, vertical), convert_in_blocks(&b_block, width, height, horizontal, vertical))
+    (convert_in_blocks(&y_block, width, height, horizontal, vertical), convert_in_blocks(&cb_block, width, height, horizontal, vertical), convert_in_blocks(&cr_block, width, height, horizontal, vertical))
 }
 
 fn convert_in_blocks(channel: &ImageBlock<u8>, width : u32, height : u32, horizontal : u32, vertical : u32) -> Vec<ImageBlock<u8>> {
