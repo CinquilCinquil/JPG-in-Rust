@@ -438,15 +438,14 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
                 */
                 let first_bit_into_0 = |n| {
                     let mut i = 1;
-                    while i < n/2 {i *= 2;}
+                    while i <= n/2 {i *= 2;}
                     return n - i;
                 };
 
                 encoded_values.insert(node.value, first_bit_into_0(path));
             }
-            else {
-                walk_tree(&(node.children[0]), path * 2, encoded_values);
-                walk_tree(&(node.children[1]), path * 2 + 1, encoded_values);
+            for i in 0..node.children.len() {
+                walk_tree(&(node.children[i]), path * 2 + i as u8, encoded_values);
             }
         }
 
