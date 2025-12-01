@@ -26,7 +26,7 @@ pub fn encode(filepath : &str) {
             let huffman_encoded_blocks = statistical_enconding(quantized_blocks);
 
             println!("start save_compressed");
-            save_compressed(huffman_encoded_blocks);
+            save_compressed(huffman_encoded_blocks, width, height);
         }
         Err(error) => println!("{}", error),
     }
@@ -333,7 +333,7 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
                 y = y.clamp(0, 7);
             }
         }
-        println!("zigzag values: {}", values.len());
+        //println!("zigzag values: {}", values.len());
         /*let mut count = 0;
         for value in &values {
             eprint!("Linha {}:", count);
@@ -355,7 +355,7 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         let mut run_length_values : Vec<(i8, i8)> = vec![];
         let mut n = 1;
         let lenght = values.len();
-        eprintln!("values length: {}", lenght);
+        //eprintln!("values length: {}", lenght);
         for i in 0..values.len() - 1 {
             /*eprintln!("values[{}]: {}, values[{} + 1]: {}", i, values[i], i, values[i + 1]);*/
             if values[i] == values[i + 1] {
@@ -372,7 +372,7 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         if values[lenght - 1] != values[lenght - 2] {
             run_length_values.push((values[lenght - 1], 1));
         } 
-        eprintln!("run_length_values: {}", run_length_values.len());
+        //eprintln!("run_length_values: {}", run_length_values.len());
         run_length_values
     }
 
@@ -380,12 +380,12 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         let mut frequencies : HashMap<(i8, i8), i8> = HashMap::new();
 
         // Gathering frequencies
-        println!("{}", run_length_values.len());
+        //println!("{}", run_length_values.len());
         for value in &run_length_values {
             let entry = frequencies.entry(*value).or_insert(0);
             *entry += 1;
             let (number, frequency) = *value;
-            println!("(number, frequency): ({},{}) entry: {}", number, frequency, *entry);
+            //println!("(number, frequency): ({},{}) entry: {}", number, frequency, *entry);
         }
 
         // Ordering frequencies
@@ -473,7 +473,7 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
 }
 
 // Step 6
-pub fn save_compressed(huffman_encoded_blocks : HuffmanEncodedBlocks) {
+pub fn save_compressed(huffman_encoded_blocks : HuffmanEncodedBlocks, width: u32, height: u32) {
 
     let file_name = "result.compressed";
 
@@ -483,7 +483,7 @@ pub fn save_compressed(huffman_encoded_blocks : HuffmanEncodedBlocks) {
         /* Channel Format:
             (number of words)(words)(tree) ...(repeat)
         */
-
+        content.push_str(" BEGIN_OF_CHANNEL ");
         fn write_tree(node : &HuffmanTree, content : &mut String) {
             if node.value != (0, 0) {content.push_str(&format!("{:?}", node.value));}
             for i in 0..node.children.len() {
@@ -496,24 +496,38 @@ pub fn save_compressed(huffman_encoded_blocks : HuffmanEncodedBlocks) {
             let (block, tree) = pair;
 
             // Writting number in binary
+            content.push_str(" BEGIN_OF_N_WORDS ");
             let mut n_words = format!("{:b}", block.len() as u8);
             for _ in 0..(8 - n_words.len()) {n_words.insert_str(0, "0");}
 
             content.push_str(&format!("{n_words}"));
+            content.push_str(" END_OF_N_WORDS ");
 
             for word in block {
+                content.push_str(" ");
+                content.push_str(" BEGIN_OF_WORD ");
                 content.push_str(&word);
+                content.push_str(" END_OF_WORD ");
             }
-
+            content.push_str(" ");
+            content.push_str(" BEGIN_OF_TREE ");
             write_tree(&tree, &mut content);
+            content.push_str(" END_OF_TREE ");
+            content.push_str(" ");
+            
         }
-
+        content.push_str(" END_OF_CHANNEL ");
         return content;
     }
-
-    let content = write_channel(huffman_encoded_blocks.0) + 
-                  &write_channel(huffman_encoded_blocks.1) + 
-                  &write_channel(huffman_encoded_blocks.2);
+    let mut content = String::new();
+    
+    content.push_str(&format!("WIDTH {}\n", width));
+    content.push_str(&format!("HEIGHT {}\n", height));
+    //content.push_str("\n");
+    
+    content.push_str(&write_channel(huffman_encoded_blocks.0));
+    content.push_str(&write_channel(huffman_encoded_blocks.1));
+    content.push_str(&write_channel(huffman_encoded_blocks.2));
 
     match std::fs::write(file_name, content) {
         Ok(_) => println!("Saved file {file_name} Successfully."),
