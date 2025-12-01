@@ -78,8 +78,8 @@ pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : u32 , height: u3
     let height_usize = height as usize;
 
     let y_image: ImageBlock<u8> = ycbcr.iter().map(|(y, _, _)| *y).collect();
-    let mut cb = Vec::with_capacity((width_usize/2) * (height_usize/2));
-    let mut cr = Vec::with_capacity((width_usize/2) * (height_usize/2));
+    let mut cb_image: ImageBlock<u8> = ycbcr.iter().map(|(_, cb, _)| *cb).collect();
+    let mut cr_image: ImageBlock<u8> = ycbcr.iter().map(|(_, _, cr)| *cr).collect();
 
     println!("height: {height}, width: {width}");
 
@@ -109,16 +109,24 @@ pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : u32 , height: u3
             let avg_cb = ((cb0 as u16 + cb1 as u16 + cb2 as u16 + cb3 as u16) / 4) as u8;
             let avg_cr = ((cr0 as u16 + cr1 as u16 + cr2 as u16 + cr3 as u16) / 4) as u8;
 
-            cb.push(avg_cb);
-            cr.push(avg_cr);
+            cb_image[h * width_usize + w] = avg_cb;
+            cb_image[h * width_usize + (w + 1)] = avg_cb;
+            cb_image[(h + 1) * width_usize + w] = avg_cb;
+            cb_image[(h + 1) * width_usize + (w + 1)] = avg_cb;
+            cr_image[h * width_usize + w] = avg_cr;
+            cr_image[h * width_usize + (w + 1)] = avg_cr;
+            cr_image[(h + 1) * width_usize + w] = avg_cr;
+            cr_image[(h + 1) * width_usize + (w + 1)] = avg_cr;
+            //cb.push(avg_cb);
+            //cr.push(avg_cr);
         }
     }
     
-    let cb_image: ImageBlock<u8> = cb.iter().flat_map(|&chro_b| std::iter::repeat(chro_b).take(4)).collect();
+    //let cb_image: ImageBlock<u8> = cb.iter().flat_map(|&chro_b| std::iter::repeat(chro_b).take(4)).collect();
 
-    let cr_image: ImageBlock<u8> = cr.iter().flat_map(|&chro_r| std::iter::repeat(chro_r).take(4)).collect();
+    //let cr_image: ImageBlock<u8> = cr.iter().flat_map(|&chro_r| std::iter::repeat(chro_r).take(4)).collect();
 
-    let mut y_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
+    /*let mut y_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
     let mut cb_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
     let mut cr_block: ImageBlock<u8> = ImageBlock::with_capacity(y_image.len());
 
@@ -134,8 +142,22 @@ pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : u32 , height: u3
     let g_block = convert_in_blocks(&G, width, height);
     let b_block = convert_in_blocks(&B, width, height);*/
 
-    (convert_in_blocks(&y_block, width, height, horizontal, vertical), convert_in_blocks(&cb_block, width, height, horizontal, vertical), convert_in_blocks(&cr_block, width, height, horizontal, vertical))
+    (convert_in_blocks(&y_block, width, height, horizontal, vertical), convert_in_blocks(&cb_block, width, height, horizontal, vertical), convert_in_blocks(&cr_block, width, height, horizontal, vertical))*/
+
+    (convert_in_blocks(&y_image, width, height, horizontal, vertical), convert_in_blocks(&cb_image, width, height, horizontal, vertical), convert_in_blocks(&cr_image, width, height, horizontal, vertical))
 }
+
+/*pub fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
+    let y_f = y as f64;
+    let cb_f = cb as f64 - 128.0;
+    let cr_f = cr as f64 - 128.0;
+
+    let r = y_f + 1.402 * cr_f;
+    let g = y_f - 0.344136 * cb_f - 0.714136 * cr_f;
+    let b = y_f + 1.772 * cb_f;
+
+    (r as u8, b as u8, g as u8)
+}*/
 
 fn convert_in_blocks(channel: &ImageBlock<u8>, width : u32, height : u32, horizontal : u32, vertical : u32) -> Vec<ImageBlock<u8>> {
     

@@ -14,6 +14,7 @@ pub struct TreeNode {
 pub fn decode(filepath: &str, output_path: &str) -> Result<(), String> {
     println!("Starting decoder...");
     
+    //decode_grayscale_only(filepath, output_path)
     match pre_processing(filepath) {
         Ok(compressed_data) => {
             println!("Parsing compressed data...");
@@ -72,75 +73,67 @@ fn inverse_quantization_and_dct(blocks: ImageInBlocks<i8>) -> Result<ImageInBloc
     Ok((y_decoded, cb_decoded, cr_decoded))
 }
 
+fn upsample_chroma(small_pixels: &[u8], small_width: u32, small_height: u32, 
+                   target_width: u32, target_height: u32) -> Vec<u8> {
+    let mut result = vec![0u8; (target_width * target_height) as usize];
+    
+    for y in 0..target_height as usize {
+        for x in 0..target_width as usize {
+            // Mapear para a resolução menor
+            let src_x = x / 2;
+            let src_y = y / 2;
+            
+            let src_idx = src_y * small_width as usize + src_x;
+            
+            // Clamp para não ultrapassar bounds
+            let src_idx = src_idx.min(small_pixels.len() - 1);
+            
+            result[y * target_width as usize + x] = small_pixels[src_idx];
+        }
+    }
+    
+    result
+}
+
 // Step 3: Convert from blocks to full image arrays
 fn merge_blocks(blocks: ImageInBlocks<u8>, width: u32, height: u32) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), String> {
     let (y_blocks, cb_blocks, cr_blocks) = blocks;
     
-    let blocks_per_row = ((width + 7) / 8) as usize;
-    let total_rows = ((height + 7) / 8) as usize;
+    println!("📊 Merge blocks: Y={}, Cb={}, Cr={}", 
+             y_blocks.len(), cb_blocks.len(), cr_blocks.len());
     
-    let mut y_pixels = vec![0; (width * height) as usize];
-    let mut cb_pixels = vec![0; (width * height) as usize];
-    let mut cr_pixels = vec![0; (width * height) as usize];
+    println!("=== DEBUG MERGE BLOCKS ===");
+    println!("Dimensões alvo: {}x{}", width, height);
+    println!("Número de blocos - Y: {}, Cb: {}, Cr: {}", 
+             y_blocks.len(), cb_blocks.len(), cr_blocks.len());
     
-    // Para canal Y (luminância)
-    for (block_idx, block) in y_blocks.iter().enumerate() {
-        let row = block_idx / blocks_per_row;
-        let col = block_idx % blocks_per_row;
-        
-        for i in 0..8 {
-            for j in 0..8 {
-                let x = col * 8 + j;
-                let y = row * 8 + i;
-                
-                if (x as u32) < width && (y as u32) < height {
-                    let idx = y * width as usize + x;
-                    y_pixels[idx] = block[i * 8 + j];
-                }
-            }
-        }
-    }
-    
-    // Para Cb e Cr (chrominância) - PRECISA DE UPSAMPLING!
-    // Seu encoder faz subamostragem 4:2:0, então os blocos Cb/Cr são metade do tamanho
+    // Calcular quantos blocos deveríamos ter
+    let y_blocks_expected = ((width + 7) / 8) * ((height + 7) / 8);
     let chroma_width = (width + 1) / 2;
     let chroma_height = (height + 1) / 2;
-    let chroma_blocks_per_row = ((chroma_width + 7) / 8) as usize;
+    let cbcr_blocks_expected = ((chroma_width + 7) / 8) * ((chroma_height + 7) / 8);
     
-    // Primeiro, reconstruir Cb e Cr em resolução reduzida
-    let mut cb_small = vec![0; (chroma_width * chroma_height) as usize];
-    let mut cr_small = vec![0; (chroma_width * chroma_height) as usize];
+    println!("Blocos esperados - Y: {}, Cb/Cr: {}", 
+             y_blocks_expected, cbcr_blocks_expected);
+    println!("Blocos encontrados - Y: {}, Cb: {}, Cr: {}", 
+             y_blocks.len(), cb_blocks.len(), cr_blocks.len());
     
-    for (block_idx, block) in cb_blocks.iter().enumerate() {
-        let row = block_idx / chroma_blocks_per_row;
-        let col = block_idx % chroma_blocks_per_row;
-        
-        for i in 0..8 {
-            for j in 0..8 {
-                let x = col * 8 + j;
-                let y = row * 8 + i;
-                
-                if (x as u32) < chroma_width && (y as u32) < chroma_height {
-                    let idx = y * chroma_width as usize + x;
-                    cb_small[idx] = block[i * 8 + j];
-                }
-            }
-        }
-    }
+    // 1. Processar Y (resolução completa)
+    let y_pixels = blocks_to_pixels(y_blocks, width, height, true);
     
-    // Repetir para Cr...
+    /*// 2. Processar Cb/Cr (METADE da resolução)
+    let chroma_width = (width + 1) / 2;
+    let chroma_height = (height + 1) / 2;*/
     
-    // Agora fazer UPSAMPLING 2x
-    for y in 0..height as usize {
-        for x in 0..width as usize {
-            let chroma_x = x / 2;
-            let chroma_y = y / 2;
-            let chroma_idx = chroma_y * chroma_width as usize + chroma_x;
-            
-            cb_pixels[y * width as usize + x] = cb_small[chroma_idx];
-            cr_pixels[y * width as usize + x] = cr_small[chroma_idx];
-        }
-    }
+    println!("🔍 Chroma resolution: {}x{} (original: {}x{})", 
+             chroma_width, chroma_height, width, height);
+    
+    /*let cb_small = blocks_to_pixels(cb_blocks, chroma_width, chroma_height, false);
+    let cr_small = blocks_to_pixels(cr_blocks, chroma_width, chroma_height, false);*/
+    
+    // 3. Upsample 2x
+    let cb_pixels = blocks_to_pixels(cb_blocks, width, height, false);
+    let cr_pixels = blocks_to_pixels(cr_blocks, width, height, false);
     
     Ok((y_pixels, cb_pixels, cr_pixels))
 }
@@ -149,6 +142,7 @@ fn merge_blocks(blocks: ImageInBlocks<u8>, width: u32, height: u32) -> Result<(V
 fn ycbcr_to_rgb(ycbcr: (Vec<u8>, Vec<u8>, Vec<u8>)) -> Result<RgbImage, String> {
     let (y_pixels, cb_pixels, cr_pixels) = ycbcr;
     
+    println!("Y pixels: {}, Cb pixels: {}, Cr pixels: {}", y_pixels.len(), cb_pixels.len(), cr_pixels.len());
     if y_pixels.len() != cb_pixels.len() || y_pixels.len() != cr_pixels.len() {
         return Err("Channel sizes don't match".to_string());
     }
@@ -301,7 +295,7 @@ fn parse_channel(content: &str) -> Result<Vec<(Vec<String>, TreeNode)>, String> 
 }
 
 fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
-    println!("DEBUG: Parsing tree string: '{}'", s);
+    //println!("DEBUG: Parsing tree string: '{}'", s);
     
     // Caso 1: Apenas um par - "0(0, 64)"
     if !s.contains('1') {
@@ -325,7 +319,7 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
         let second_val: i8 = parts[1].parse()
             .map_err(|e| format!("Número inválido '{}': {}", parts[1], e))?;
         
-        println!("DEBUG: Árvore com um nó: ({}, {})", first_val, second_val);
+        //println!("DEBUG: Árvore com um nó: ({}, {})", first_val, second_val);
         
         // Árvore com apenas uma folha
         // Neste caso, ambos os bits (0 e 1) levam ao mesmo símbolo
@@ -396,7 +390,7 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
     let second_val: i8 = num2_str.parse()
         .map_err(|e| format!("Invalid second number '{}': {}", num2_str, e))?;
     
-    println!("DEBUG: First child: ({}, {})", first_val, second_val);
+    //println!("DEBUG: First child: ({}, {})", first_val, second_val);
     
     // Segundo child (bit 1)
     if idx >= chars.len() {
@@ -452,7 +446,7 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
     let fourth_val: i8 = num4_str.parse()
         .map_err(|e| format!("Invalid fourth number '{}': {}", num4_str, e))?;
     
-    println!("DEBUG: Second child: ({}, {})", third_val, fourth_val);
+    //println!("DEBUG: Second child: ({}, {})", third_val, fourth_val);
     
     // Build tree with two leaf nodes
     Ok(TreeNode {
@@ -633,19 +627,25 @@ fn inverse_dct_block(block: &[f64]) -> Vec<u8> {
                 }
             }
             
-            result[y * 8 + x] = (sum / 4.0) + 128.0;
+            result[y * 8 + x] = sum / 4.0;
         }
     }
     
-    // Clamp to 0-255 and convert to u8
+    // Para Y: level shift +128, clamp 0-255
+    // Para Cb/Cr: JÁ estão centrados em 128, apenas clamp
     result.iter()
-        .map(|&v| v.clamp(0.0, 255.0).round() as u8)
+        .map(|&v| {
+            let shifted = v + 128.0; // Para Y, sempre shift
+            shifted.clamp(0.0, 255.0).round() as u8
+        })
         .collect()
 }
 
-fn blocks_to_pixels(blocks: Vec<ImageBlock<u8>>, width: usize, height: usize) -> Vec<u8> {
-    let mut pixels = vec![0; width * height];
-    let blocks_per_row = (width + 7) / 8;
+fn blocks_to_pixels(blocks: Vec<ImageBlock<u8>>, width: u32, height: u32, is_luminance: bool) -> Vec<u8> {
+    let blocks_per_row = ((width + 7) / 8) as usize;
+    let total_rows = ((height + 7) / 8) as usize;
+    
+    let mut pixels = vec![0u8; (width * height) as usize];
     
     for (block_idx, block) in blocks.iter().enumerate() {
         let row = block_idx / blocks_per_row;
@@ -656,8 +656,9 @@ fn blocks_to_pixels(blocks: Vec<ImageBlock<u8>>, width: usize, height: usize) ->
                 let x = col * 8 + j;
                 let y = row * 8 + i;
                 
-                if x < width && y < height {
-                    pixels[y * width + x] = block[i * 8 + j];
+                if (x as u32) < width && (y as u32) < height {
+                    let idx = (y as u32 * width + x as u32) as usize;
+                    pixels[idx] = block[i * 8 + j];
                 }
             }
         }
