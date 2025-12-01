@@ -30,7 +30,7 @@ pub fn undo_dct() {
 
 }
 
-pub fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
+/*pub fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
     let y_f = y as f64;
     let cb_f = cb as f64 - 128.0;
     let cr_f = cr as f64 - 128.0;
@@ -40,7 +40,7 @@ pub fn ycbcr_to_rgb(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
     let b = y_f + 1.772 * cb_f;
 
     (r as u8, b as u8, g as u8)
-}
+}*/
 
 pub fn colorspace_conversion(y: u8, cb: u8, cr: u8) -> (u8, u8, u8) {
     let y_f = y as f64;
