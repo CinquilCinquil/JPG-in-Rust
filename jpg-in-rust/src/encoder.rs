@@ -8,7 +8,7 @@ use crate::decoder::{ycbcr_to_rgb};
 
 pub fn encode(filepath : &str) {
     match pre_processing(filepath) {
-        Ok(mut img) => {
+        Ok(img) => {
             println!("start colorspace_conversion");
             let crominance_values = colorspace_conversion(&img);
 
@@ -23,10 +23,10 @@ pub fn encode(filepath : &str) {
             let quantized_blocks = quantization(dct_blocks);
 
             println!("start statistical_enconding");
-            statistical_enconding(quantized_blocks);
+            let huffman_encoded_blocks = statistical_enconding(quantized_blocks);
 
             println!("start save_compressed");
-            save_compressed(&mut img);
+            save_compressed(huffman_encoded_blocks);
         }
         Err(error) => println!("{}", error),
     }
@@ -376,7 +376,7 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         run_length_values
     }
 
-    fn huffman_enconding(run_length_values : Vec<(i8, i8)>) -> (Vec<u8>, HuffmanTree) {
+    fn huffman_enconding(run_length_values : Vec<(i8, i8)>) -> (Vec<String>, HuffmanTree) {
         let mut frequencies : HashMap<(i8, i8), i8> = HashMap::new();
 
         // Gathering frequencies
@@ -424,46 +424,34 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
             }
         }
 
-        let mut root = HuffmanTree{value : (0, 0), frequency : 0, children : nodes};
+        let root = HuffmanTree{value : (0, 0), frequency : 0, children : nodes};
 
         // Registering encoded values for every node on the tree
-        let mut encoded_values : HashMap<(i8, i8), u8> = HashMap::new();
-        fn walk_tree(node : &HuffmanTree, path : u8, encoded_values : &mut HashMap<(i8, i8), u8>) {
+        let mut encoded_values : HashMap<(i8, i8), String> = HashMap::new();
+        fn walk_tree(node : &HuffmanTree, path : String, encoded_values : &mut HashMap<(i8, i8), String>) {
             if node.value != (0, 0) {
-
-                /* OBS:
-                    walk_tree is being initially called with path = 1.
-                    This yields the correct encoded values in binary, except for a '1'
-                    on the front. So we must remove it.
-                */
-                let first_bit_into_0 = |n| {
-                    let mut i = 1;
-                    while i <= n/2 {i *= 2;}
-                    return n - i;
-                };
-
-                encoded_values.insert(node.value, first_bit_into_0(path));
+                encoded_values.insert(node.value, path.clone());
             }
             for i in 0..node.children.len() {
-                walk_tree(&(node.children[i]), path * 2 + i as u8, encoded_values);
+                let new_path = format!("{}{}", path, if i % 2 == 0 {"0"} else {"1"});
+                walk_tree(&(node.children[i]), new_path, encoded_values);
             }
         }
 
-        walk_tree(&root, 1, &mut encoded_values);
+        walk_tree(&root, String::new(), &mut encoded_values);
 
         // Replacing run length values with encoded ones
-        let mut new_run_length_values : Vec<u8> = vec![];
+        let mut new_run_length_values : Vec<String> = vec![];
         for value in &run_length_values {
-            new_run_length_values.push(encoded_values[value]);
-            println!("Old value: {value:?}, Encoded value : {:?}", encoded_values[value]);
+            new_run_length_values.push(encoded_values[value].clone());
         }
 
         return (new_run_length_values, root);
     }
 
     // This function applies the previously defined functions in all blocks of 'img_blocks'
-    fn final_func(img_blocks : Vec<ImageBlock<i8>>) -> Vec<(Vec<u8>, HuffmanTree)> {
-        let mut huffman_encoded_blocks : Vec<(Vec<u8>, HuffmanTree)> = vec![];
+    fn final_func(img_blocks : Vec<ImageBlock<i8>>) -> Vec<(Vec<String>, HuffmanTree)> {
+        let mut huffman_encoded_blocks : Vec<(Vec<String>, HuffmanTree)> = vec![];
 
         for block in img_blocks {
             /*for value in &block {
@@ -485,6 +473,50 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
 }
 
 // Step 6
-pub fn save_compressed(img : &mut Image) {
-    todo!()
+pub fn save_compressed(huffman_encoded_blocks : HuffmanEncodedBlocks) {
+
+    let file_name = "result.compressed";
+
+    fn write_channel(huffman_encoded_blocks : Vec<(Vec<String>, HuffmanTree)>) -> String {
+        let mut content = String::new();
+
+        /* Channel Format:
+            (number of words)(words)(tree) ...(repeat)
+        */
+
+        fn write_tree(node : &HuffmanTree, content : &mut String) {
+            if node.value != (0, 0) {content.push_str(&format!("{:?}", node.value));}
+            for i in 0..node.children.len() {
+                content.push_str(if i % 2 == 0 {"0"} else {"1"});
+                write_tree(&(node.children[i]), content);
+            }
+        }
+
+        for pair in huffman_encoded_blocks {
+            let (block, tree) = pair;
+
+            // Writting number in binary
+            let mut n_words = format!("{:b}", block.len() as u8);
+            for _ in 0..(8 - n_words.len()) {n_words.insert_str(0, "0");}
+
+            content.push_str(&format!("{n_words}"));
+
+            for word in block {
+                content.push_str(&word);
+            }
+
+            write_tree(&tree, &mut content);
+        }
+
+        return content;
+    }
+
+    let content = write_channel(huffman_encoded_blocks.0) + 
+                  &write_channel(huffman_encoded_blocks.1) + 
+                  &write_channel(huffman_encoded_blocks.2);
+
+    match std::fs::write(file_name, content) {
+        Ok(_) => println!("Saved file {file_name} Successfully."),
+        Err(_) => println!("Error saving {file_name}")
+    }
 }

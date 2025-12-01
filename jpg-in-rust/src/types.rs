@@ -7,7 +7,9 @@ pub type ImageBlock<T> = Vec<T>;
 pub type ImageInBlocks<T> = (Vec<ImageBlock<T>>, Vec<ImageBlock<T>>, Vec<ImageBlock<T>>);
 pub type Pixel = (u32, u32, Rgba<u8>);
 
-pub type HuffmanEncodedBlocks = (Vec<(Vec<u8>, HuffmanTree)>, Vec<(Vec<u8>, HuffmanTree)>, Vec<(Vec<u8>, HuffmanTree)>);
+pub type HuffmanEncodedBlocks = (Vec<(Vec<String>, HuffmanTree)>,
+                                 Vec<(Vec<String>, HuffmanTree)>,
+                                 Vec<(Vec<String>, HuffmanTree)>);
 
 pub struct HuffmanTree {
     pub value : (i8, i8),
