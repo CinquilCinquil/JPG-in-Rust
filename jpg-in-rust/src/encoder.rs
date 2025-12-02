@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use image::GenericImageView;
-use itertools::izip;
 
-use crate::types::{Image, YCbCrColorSpace, Pixel, ImageInBlocks, ImageBlock, 
+use crate::types::{Image, YCbCrColorSpace, ImageInBlocks, ImageBlock, 
     HuffmanTree, HuffmanEncodedBlocks};
 //use crate::decoder::{ycbcr_to_rgb};
 
@@ -375,7 +374,6 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         for value in &run_length_values {
             let entry = frequencies.entry(*value).or_insert(0);
             *entry += 1;
-            let (number, frequency) = *value;
         }
 
         // Ordering frequencies

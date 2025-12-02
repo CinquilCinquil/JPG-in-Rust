@@ -1,5 +1,4 @@
-use image::{ImageBuffer, RgbImage};
-use std::collections::HashMap;
+use image::{RgbImage};
 
 pub type ImageBlock<T> = Vec<T>;
 pub type ImageInBlocks<T> = (Vec<ImageBlock<T>>, Vec<ImageBlock<T>>, Vec<ImageBlock<T>>);
@@ -67,28 +66,6 @@ fn inverse_quantization_and_dct(blocks: ImageInBlocks<i8>) -> Result<ImageInBloc
     let cr_decoded = process_channel_blocks(cr_blocks, false)?;
     
     Ok((y_decoded, cb_decoded, cr_decoded))
-}
-
-fn upsample_chroma(small_pixels: &[u8], small_width: u32, small_height: u32, 
-                   target_width: u32, target_height: u32) -> Vec<u8> {
-    let mut result = vec![0u8; (target_width * target_height) as usize];
-    
-    for y in 0..target_height as usize {
-        for x in 0..target_width as usize {
-            // Mapear para a resolução menor
-            let src_x = x / 2;
-            let src_y = y / 2;
-            
-            let src_idx = src_y * small_width as usize + src_x;
-            
-            // Clamp para não ultrapassar bounds
-            let src_idx = src_idx.min(small_pixels.len() - 1);
-            
-            result[y * target_width as usize + x] = small_pixels[src_idx];
-        }
-    }
-    
-    result
 }
 
 // Step 3: Convert from blocks to full image arrays
@@ -573,7 +550,6 @@ fn inverse_dct_block(block: &[f64]) -> Vec<u8> {
 
 fn blocks_to_pixels(blocks: Vec<ImageBlock<u8>>, width: u32, height: u32, is_luminance: bool) -> Vec<u8> {
     let blocks_per_row = ((width + 7) / 8) as usize;
-    let total_rows = ((height + 7) / 8) as usize;
     
     let mut pixels = vec![0u8; (width * height) as usize];
     

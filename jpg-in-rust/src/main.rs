@@ -1,5 +1,4 @@
 use std::env;
-use std::path::Path;
 mod types;
 mod encoder;
 mod decoder;
