@@ -142,33 +142,27 @@ fn merge_blocks(blocks: ImageInBlocks<u8>, width: u32, height: u32) -> Result<(V
 fn ycbcr_to_rgb(ycbcr: (Vec<u8>, Vec<u8>, Vec<u8>), width: u32, height: u32) -> Result<RgbImage, String> {
     let (y_pixels, cb_pixels, cr_pixels) = ycbcr;
     
-    println!("Y pixels: {}, Cb pixels: {}, Cr pixels: {}", y_pixels.len(), cb_pixels.len(), cr_pixels.len());
-    if y_pixels.len() != cb_pixels.len() || y_pixels.len() != cr_pixels.len() {
-        return Err("Channel sizes don't match".to_string());
-    }
-    
-    let pixel_count = y_pixels.len();
-    /*let width = (pixel_count as f64).sqrt().ceil() as u32;
-    let height = ((pixel_count + width as usize - 1) / width as usize) as u32;*/
-    
     let mut img = RgbImage::new(width, height);
     
-    for i in 0..pixel_count {
+    for i in 0..y_pixels.len() {
         let x = (i % width as usize) as u32;
         let y = (i / width as usize) as u32;
         
         if x < width && y < height {
             let y_val = y_pixels[i] as f64;
-            let cb_val = cb_pixels[i] as f64;
-            let cr_val = cr_pixels[i] as f64;
+            let cb_val = cb_pixels[i] as f64 - 128.0; // Centrar em 0
+            let cr_val = cr_pixels[i] as f64 - 128.0; // Centrar em 0
             
-            // YCbCr to RGB conversion
-            let r = (y_val + 1.402 * (cr_val - 128.0)).clamp(0.0, 255.0) as u8;
-            let g = (y_val - 0.344136 * (cb_val - 128.0) - 0.714136 * (cr_val - 128.0))
-                .clamp(0.0, 255.0) as u8;
-            let b = (y_val + 1.772 * (cb_val - 128.0)).clamp(0.0, 255.0) as u8;
+            // Fórmulas inversas correspondentes
+            let r = y_val + 1.402 * cr_val;
+            let g = y_val - 0.344136 * cb_val - 0.714136 * cr_val;
+            let b = y_val + 1.772 * cb_val;
             
-            img.put_pixel(x, y, image::Rgb([r, g, b]));
+            img.put_pixel(x, y, image::Rgb([
+                r.clamp(0.0, 255.0).round() as u8,
+                g.clamp(0.0, 255.0).round() as u8,
+                b.clamp(0.0, 255.0).round() as u8,
+            ]));
         }
     }
     

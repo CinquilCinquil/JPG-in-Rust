@@ -46,25 +46,31 @@ pub fn pre_processing(filepath : &str) -> Result<Image, String> {
 /* Step 1
     - Convert from RGB colorspace into Y Cb Cr
 */
-pub fn colorspace_conversion(img : &Image) -> Vec<YCbCrColorSpace> {
+pub fn colorspace_conversion(img: &Image) -> Vec<YCbCrColorSpace> {
     let pixels = img.pixels();
     let (w, h) = img.dimensions();
-
-    let mut crominance_values : Vec<YCbCrColorSpace> = vec![(0, 0, 0); (w * h) as usize];
-    let red = |pixel : Pixel| {pixel.2.0[0] as f64};
-    let blue = |pixel : Pixel| {pixel.2.0[1] as f64};
-    let green = |pixel : Pixel| {pixel.2.0[2] as f64};
-
+    
+    let mut crominance_values = vec![(0, 0, 0); (w * h) as usize];
+    
     for pixel in pixels {
         let i = (pixel.0 + pixel.1 * h) as usize;
+        let r = pixel.2.0[0] as f64;
+        let g = pixel.2.0[1] as f64;
+        let b = pixel.2.0[2] as f64;
+        
+        // Fórmulas JPEG padrão
+        let y = 0.299 * r + 0.587 * g + 0.114 * b;
+        let cb = 128.0 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+        let cr = 128.0 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+        
         crominance_values[i] = (
-        /* Y */     (0.299 * red(pixel) + 0.587 * green(pixel) + 0.114 * blue(pixel)) as u8,
-        /* Cb */    (-0.1687 * red(pixel) - 0.3313 * green(pixel) + 0.5 * blue(pixel) + 128.0) as u8,
-        /* Cr */    (0.5 * red(pixel) - 0.4187 * green(pixel) - 0.0813 * blue(pixel) + 128.0) as u8
+            y.clamp(0.0, 255.0).round() as u8,
+            cb.clamp(0.0, 255.0).round() as u8,
+            cr.clamp(0.0, 255.0).round() as u8,
         );
     }
-
-    return crominance_values;
+    
+    crominance_values
 }
 
 /* Step 2
