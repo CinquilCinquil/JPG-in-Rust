@@ -12,28 +12,24 @@ pub struct TreeNode {
 }
 
 pub fn decode(filepath: &str, output_path: &str) -> Result<(), String> {
-    println!("Starting decoder...");
+    //println!("Starting decoder...");
     
-    //decode_grayscale_only(filepath, output_path)
     match pre_processing(filepath) {
         Ok(compressed_data) => {
-            println!("Parsing compressed data...");
             
             let (width, height, huffman_blocks) = statistical_decoding(&compressed_data)?;
             
-            println!("Inverse quantization and DCT...");
             let ycbcr_blocks = inverse_quantization_and_dct(huffman_blocks)?;
             
-            println!("Merging blocks...");
             let ycbcr_image = merge_blocks(ycbcr_blocks, width, height)?;
             
-            println!("Converting to RGB...");
             let rgb_image = ycbcr_to_rgb(ycbcr_image, width, height)?;
             
             println!("Saving image...");
             save_image(&rgb_image, output_path)?;
             
             println!("Decoding completed successfully!");
+            //println!("Saved image in {}!", output_path);
             Ok(())
         }
         Err(error) => {
@@ -99,39 +95,8 @@ fn upsample_chroma(small_pixels: &[u8], small_width: u32, small_height: u32,
 fn merge_blocks(blocks: ImageInBlocks<u8>, width: u32, height: u32) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), String> {
     let (y_blocks, cb_blocks, cr_blocks) = blocks;
     
-    println!("📊 Merge blocks: Y={}, Cb={}, Cr={}", 
-             y_blocks.len(), cb_blocks.len(), cr_blocks.len());
     
-    println!("=== DEBUG MERGE BLOCKS ===");
-    println!("Dimensões alvo: {}x{}", width, height);
-    println!("Número de blocos - Y: {}, Cb: {}, Cr: {}", 
-             y_blocks.len(), cb_blocks.len(), cr_blocks.len());
-    
-    // Calcular quantos blocos deveríamos ter
-    let y_blocks_expected = ((width + 7) / 8) * ((height + 7) / 8);
-    let chroma_width = (width + 1) / 2;
-    let chroma_height = (height + 1) / 2;
-    let cbcr_blocks_expected = ((chroma_width + 7) / 8) * ((chroma_height + 7) / 8);
-    
-    println!("Blocos esperados - Y: {}, Cb/Cr: {}", 
-             y_blocks_expected, cbcr_blocks_expected);
-    println!("Blocos encontrados - Y: {}, Cb: {}, Cr: {}", 
-             y_blocks.len(), cb_blocks.len(), cr_blocks.len());
-    
-    // 1. Processar Y (resolução completa)
     let y_pixels = blocks_to_pixels(y_blocks, width, height, true);
-    
-    /*// 2. Processar Cb/Cr (METADE da resolução)
-    let chroma_width = (width + 1) / 2;
-    let chroma_height = (height + 1) / 2;*/
-    
-    println!("🔍 Chroma resolution: {}x{} (original: {}x{})", 
-             chroma_width, chroma_height, width, height);
-    
-    /*let cb_small = blocks_to_pixels(cb_blocks, chroma_width, chroma_height, false);
-    let cr_small = blocks_to_pixels(cr_blocks, chroma_width, chroma_height, false);*/
-    
-    // 3. Upsample 2x
     let cb_pixels = blocks_to_pixels(cb_blocks, width, height, false);
     let cr_pixels = blocks_to_pixels(cr_blocks, width, height, false);
     
@@ -150,10 +115,9 @@ fn ycbcr_to_rgb(ycbcr: (Vec<u8>, Vec<u8>, Vec<u8>), width: u32, height: u32) -> 
         
         if x < width && y < height {
             let y_val = y_pixels[i] as f64;
-            let cb_val = cb_pixels[i] as f64 - 128.0; // Centrar em 0
-            let cr_val = cr_pixels[i] as f64 - 128.0; // Centrar em 0
+            let cb_val = cb_pixels[i] as f64 - 128.0; 
+            let cr_val = cr_pixels[i] as f64 - 128.0; 
             
-            // Fórmulas inversas correspondentes
             let r = y_val + 1.402 * cr_val;
             let g = y_val - 0.344136 * cb_val - 0.714136 * cr_val;
             let b = y_val + 1.772 * cb_val;
@@ -182,11 +146,9 @@ fn parse_file(content: &str) -> Result<((u32, u32),
                                         Vec<(Vec<String>, TreeNode)>, 
                                         Vec<(Vec<String>, TreeNode)>), String> {
     
-    // Procurar dimensões no início do arquivo
     let mut width = 0;
     let mut height = 0;
     
-    // Verificar se tem cabeçalho com dimensões
     let lines: Vec<&str> = content.lines().collect();
     for line in &lines {
         if line.starts_with("WIDTH ") {
@@ -200,14 +162,12 @@ fn parse_file(content: &str) -> Result<((u32, u32),
     
     // Se não encontrou dimensões, tentar estimar
     if width == 0 || height == 0 {
-        println!("⚠️  Aviso: Dimensões não encontradas no arquivo. Estimando...");
-        // Vamos parsear primeiro e estimar depois
+        println!("⚠️  Alert: No dimensions found!");
     }
     
     let mut channels = Vec::new();
     let mut remaining = content;
     
-    // Pular linhas do cabeçalho até encontrar o primeiro canal
     if let Some(first_channel) = remaining.find("BEGIN_OF_CHANNEL") {
         remaining = &remaining[first_channel..];
     }
@@ -289,11 +249,9 @@ fn parse_channel(content: &str) -> Result<Vec<(Vec<String>, TreeNode)>, String> 
 }
 
 fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
-    //println!("DEBUG: Parsing tree string: '{}'", s);
     
-    // Caso 1: Apenas um par - "0(0, 64)"
     if !s.contains('1') {
-        // Formato: "0(x,y)"
+        // Formato: "0(x ,y)"
         if !s.starts_with('0') || !s.contains('(') || !s.contains(')') {
             return Err(format!("Formato inválido para árvore com um nó: '{}'", s));
         }
@@ -313,10 +271,6 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
         let second_val: i8 = parts[1].parse()
             .map_err(|e| format!("Número inválido '{}': {}", parts[1], e))?;
         
-        //println!("DEBUG: Árvore com um nó: ({}, {})", first_val, second_val);
-        
-        // Árvore com apenas uma folha
-        // Neste caso, ambos os bits (0 e 1) levam ao mesmo símbolo
         return Ok(TreeNode {
             symbol: None,
             left: Some(Box::new(TreeNode {
@@ -332,8 +286,6 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
         });
     }
     
-    // Caso 2: Dois pares - "0(-128, 1)1(0, 63)"
-    // ... seu código existente para dois pares ...
     let chars: Vec<char> = s.chars().collect();
     let mut idx = 0;
     
@@ -358,14 +310,12 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
     if chars[idx] != ',' {
         return Err(format!("Expected ',', got '{}'", chars[idx]));
     }
-    idx += 1; // Pula a vírgula
+    idx += 1; 
     
-    // Pular espaços APÓS a vírgula
     while idx < chars.len() && chars[idx].is_whitespace() {
         idx += 1;
     }
     
-    // Parse segundo número
     let mut num2_str = String::new();
     while idx < chars.len() && chars[idx] != ')' {
         num2_str.push(chars[idx]);
@@ -375,23 +325,18 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
     if chars[idx] != ')' {
         return Err(format!("Expected ')', got '{}'", chars[idx]));
     }
-    idx += 1; // Pula o ')'
+    idx += 1; 
     
-    // Parse os números
     let first_val: i8 = num1_str.parse()
         .map_err(|e| format!("Invalid first number '{}': {}", num1_str, e))?;
     
     let second_val: i8 = num2_str.parse()
         .map_err(|e| format!("Invalid second number '{}': {}", num2_str, e))?;
     
-    //println!("DEBUG: First child: ({}, {})", first_val, second_val);
-    
-    // Segundo child (bit 1)
     if idx >= chars.len() {
         return Err("Unexpected end after first child".to_string());
     }
     
-    // Pular qualquer espaço entre os dois pares
     while idx < chars.len() && chars[idx].is_whitespace() {
         idx += 1;
     }
@@ -406,7 +351,6 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
     }
     idx += 1;
     
-    // Parse terceiro número
     let mut num3_str = String::new();
     while idx < chars.len() && chars[idx] != ',' {
         num3_str.push(chars[idx]);
@@ -416,14 +360,11 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
     if idx >= chars.len() || chars[idx] != ',' {
         return Err("Expected ',' after third number".to_string());
     }
-    idx += 1; // Pula a vírgula
-    
-    // Pular espaços APÓS a vírgula
+    idx += 1; 
     while idx < chars.len() && chars[idx].is_whitespace() {
         idx += 1;
     }
     
-    // Parse quarto número
     let mut num4_str = String::new();
     while idx < chars.len() && chars[idx] != ')' {
         num4_str.push(chars[idx]);
@@ -440,9 +381,6 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
     let fourth_val: i8 = num4_str.parse()
         .map_err(|e| format!("Invalid fourth number '{}': {}", num4_str, e))?;
     
-    //println!("DEBUG: Second child: ({}, {})", third_val, fourth_val);
-    
-    // Build tree with two leaf nodes
     Ok(TreeNode {
         symbol: None,
         left: Some(Box::new(TreeNode {
@@ -625,11 +563,9 @@ fn inverse_dct_block(block: &[f64]) -> Vec<u8> {
         }
     }
     
-    // Para Y: level shift +128, clamp 0-255
-    // Para Cb/Cr: JÁ estão centrados em 128, apenas clamp
     result.iter()
         .map(|&v| {
-            let shifted = v + 128.0; // Para Y, sempre shift
+            let shifted = v + 128.0; 
             shifted.clamp(0.0, 255.0).round() as u8
         })
         .collect()

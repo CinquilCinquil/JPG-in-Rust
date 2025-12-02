@@ -11,15 +11,17 @@ fn main() {
     }
 
     let filepath = &args[1];
-    let decoder_filepath = &args[2];
+    
 
     encoder::encode(filepath);
+    if args.len() == 3 {
+        let decoder_filepath = &args[2];
+        let image = "image_decoder.png";
 
-    let image = "image_decoder.png";
-
-    match decoder::decode(decoder_filepath, image) {
-        Ok(_) => println!("✅ Sucesso! Imagem salva em {}", image),
-        Err(e) => println!("❌ Erro: {}", e),
+        match decoder::decode(decoder_filepath, image) {
+            Ok(_) => println!("✅ Sucess! Image saved in {}", image),
+            Err(e) => println!("❌ Error: {}", e),
+        }
     }
     
 }
