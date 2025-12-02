@@ -28,7 +28,7 @@ pub fn decode(filepath: &str, output_path: &str) -> Result<(), String> {
             let ycbcr_image = merge_blocks(ycbcr_blocks, width, height)?;
             
             println!("Converting to RGB...");
-            let rgb_image = ycbcr_to_rgb(ycbcr_image)?;
+            let rgb_image = ycbcr_to_rgb(ycbcr_image, width, height)?;
             
             println!("Saving image...");
             save_image(&rgb_image, output_path)?;
@@ -139,7 +139,7 @@ fn merge_blocks(blocks: ImageInBlocks<u8>, width: u32, height: u32) -> Result<(V
 }
 
 // Step 4: Convert YCbCr to RGB
-fn ycbcr_to_rgb(ycbcr: (Vec<u8>, Vec<u8>, Vec<u8>)) -> Result<RgbImage, String> {
+fn ycbcr_to_rgb(ycbcr: (Vec<u8>, Vec<u8>, Vec<u8>), width: u32, height: u32) -> Result<RgbImage, String> {
     let (y_pixels, cb_pixels, cr_pixels) = ycbcr;
     
     println!("Y pixels: {}, Cb pixels: {}, Cr pixels: {}", y_pixels.len(), cb_pixels.len(), cr_pixels.len());
@@ -148,8 +148,8 @@ fn ycbcr_to_rgb(ycbcr: (Vec<u8>, Vec<u8>, Vec<u8>)) -> Result<RgbImage, String> 
     }
     
     let pixel_count = y_pixels.len();
-    let width = (pixel_count as f64).sqrt().ceil() as u32;
-    let height = ((pixel_count + width as usize - 1) / width as usize) as u32;
+    /*let width = (pixel_count as f64).sqrt().ceil() as u32;
+    let height = ((pixel_count + width as usize - 1) / width as usize) as u32;*/
     
     let mut img = RgbImage::new(width, height);
     

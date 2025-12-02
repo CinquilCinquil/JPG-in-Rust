@@ -83,17 +83,15 @@ pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : u32 , height: u3
 
     println!("height: {height}, width: {width}");
 
-    let horizontal :u32 = if (width + 7) % 8 == 0 {
+    let horizontal = if width % 8 == 0 {
+        width / 8
+    } else {
         (width + 7) / 8
-    }
-    else {
-        (width + 7) / 8 + 1
     };
-    let vertical : u32 = if (height + 7) % 8 == 0 {
+    let vertical = if height % 8 == 0 {
+        height / 8
+    } else {
         (height + 7) / 8
-    }
-    else {
-        (height + 7) / 8 + 1
     };
     println!("horizon: {horizontal}, vertical: {vertical}");
 
