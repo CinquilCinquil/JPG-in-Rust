@@ -101,37 +101,17 @@ fn merge_blocks(blocks: ImageInBlocks<u8>, width: u32, height: u32) -> Result<(V
     
     println!("📊 Merge blocks: Y={}, Cb={}, Cr={}", 
              y_blocks.len(), cb_blocks.len(), cr_blocks.len());
-    
-    println!("=== DEBUG MERGE BLOCKS ===");
-    println!("Dimensões alvo: {}x{}", width, height);
-    println!("Número de blocos - Y: {}, Cb: {}, Cr: {}", 
-             y_blocks.len(), cb_blocks.len(), cr_blocks.len());
-    
+
     // Calcular quantos blocos deveríamos ter
     let y_blocks_expected = ((width + 7) / 8) * ((height + 7) / 8);
     let chroma_width = (width + 1) / 2;
     let chroma_height = (height + 1) / 2;
     let cbcr_blocks_expected = ((chroma_width + 7) / 8) * ((chroma_height + 7) / 8);
     
-    println!("Blocos esperados - Y: {}, Cb/Cr: {}", 
-             y_blocks_expected, cbcr_blocks_expected);
-    println!("Blocos encontrados - Y: {}, Cb: {}, Cr: {}", 
-             y_blocks.len(), cb_blocks.len(), cr_blocks.len());
-    
     // 1. Processar Y (resolução completa)
     let y_pixels = blocks_to_pixels(y_blocks, width, height, true);
     
-    /*// 2. Processar Cb/Cr (METADE da resolução)
-    let chroma_width = (width + 1) / 2;
-    let chroma_height = (height + 1) / 2;*/
-    
-    println!("🔍 Chroma resolution: {}x{} (original: {}x{})", 
-             chroma_width, chroma_height, width, height);
-    
-    /*let cb_small = blocks_to_pixels(cb_blocks, chroma_width, chroma_height, false);
-    let cr_small = blocks_to_pixels(cr_blocks, chroma_width, chroma_height, false);*/
-    
-    // 3. Upsample 2x
+    // 2. Upsample 2x
     let cb_pixels = blocks_to_pixels(cb_blocks, width, height, false);
     let cr_pixels = blocks_to_pixels(cr_blocks, width, height, false);
     
@@ -289,7 +269,6 @@ fn parse_channel(content: &str) -> Result<Vec<(Vec<String>, TreeNode)>, String> 
 }
 
 fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
-    //println!("DEBUG: Parsing tree string: '{}'", s);
     
     // Caso 1: Apenas um par - "0(0, 64)"
     if !s.contains('1') {
@@ -312,8 +291,6 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
         
         let second_val: i8 = parts[1].parse()
             .map_err(|e| format!("Número inválido '{}': {}", parts[1], e))?;
-        
-        //println!("DEBUG: Árvore com um nó: ({}, {})", first_val, second_val);
         
         // Árvore com apenas uma folha
         // Neste caso, ambos os bits (0 e 1) levam ao mesmo símbolo
@@ -384,8 +361,6 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
     let second_val: i8 = num2_str.parse()
         .map_err(|e| format!("Invalid second number '{}': {}", num2_str, e))?;
     
-    //println!("DEBUG: First child: ({}, {})", first_val, second_val);
-    
     // Segundo child (bit 1)
     if idx >= chars.len() {
         return Err("Unexpected end after first child".to_string());
@@ -439,8 +414,6 @@ fn parse_tree_string(s: &str) -> Result<TreeNode, String> {
     
     let fourth_val: i8 = num4_str.parse()
         .map_err(|e| format!("Invalid fourth number '{}': {}", num4_str, e))?;
-    
-    //println!("DEBUG: Second child: ({}, {})", third_val, fourth_val);
     
     // Build tree with two leaf nodes
     Ok(TreeNode {

@@ -87,8 +87,6 @@ pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : u32 , height: u3
     let mut cb_image: ImageBlock<u8> = ycbcr.iter().map(|(_, cb, _)| *cb).collect();
     let mut cr_image: ImageBlock<u8> = ycbcr.iter().map(|(_, _, cr)| *cr).collect();
 
-    println!("height: {height}, width: {width}");
-
     let horizontal = if width % 8 == 0 {
         width / 8
     } else {
@@ -99,7 +97,6 @@ pub fn split_into_blocks(ycbcr : &Vec<YCbCrColorSpace>, width : u32 , height: u3
     } else {
         (height + 7) / 8
     };
-    println!("horizon: {horizontal}, vertical: {vertical}");
 
     for h in (0..height_usize).step_by(2) {
         for w in (0..width_usize).step_by(2) {
@@ -202,24 +199,10 @@ fn convert_in_blocks(channel: &ImageBlock<u8>, width : u32, height : u32, horizo
                     }
                 }
             }
-            /*if count == 0 {
-                
-            }*/
-            if block.len() != 64 {
-                for i in 0..8 {
-                    for j in 0..8 {
-                        let index = i * 8 + j;
-                    print!(" {}", block[index]);
-                    }
-                    println!{""};
-                }
-            }
-            //println!("{}", block.len());
+
             blocks.push(block);
-            //count = 1;
         }
     }
-    println!("{}", blocks.len());
     blocks
 }
 
@@ -318,11 +301,8 @@ pub fn quantization(img_blocks : ImageInBlocks<f64>) -> ImageInBlocks<i8> {
         new_g.push(quantized_block_g);
         new_b.push(quantized_block_b);
     }
-    //println!("{}", new_r.len());
-    //println!("{}", new_g.len());
-    //println!("{}", new_b.len());
+
     (new_r, new_g, new_b)
-    //todo!()
 }
 
 // Step 5
@@ -359,17 +339,6 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
                 y = y.clamp(0, 7);
             }
         }
-        //println!("zigzag values: {}", values.len());
-        /*let mut count = 0;
-        for value in &values {
-            eprint!("Linha {}:", count);
-            count += 1;
-            for _ in 0..8 {
-                eprint!(" {}", *value);
-            }
-            //print!(" {}", *value);
-            eprintln!();
-        }*/
         
         return values;
     }
@@ -381,9 +350,7 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         let mut run_length_values : Vec<(i8, i8)> = vec![];
         let mut n = 1;
         let lenght = values.len();
-        //eprintln!("values length: {}", lenght);
         for i in 0..values.len() - 1 {
-            /*eprintln!("values[{}]: {}, values[{} + 1]: {}", i, values[i], i, values[i + 1]);*/
             if values[i] == values[i + 1] {
                 n += 1;
             }
@@ -398,7 +365,6 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         if values[lenght - 1] != values[lenght - 2] {
             run_length_values.push((values[lenght - 1], 1));
         } 
-        //eprintln!("run_length_values: {}", run_length_values.len());
         run_length_values
     }
 
@@ -406,12 +372,10 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         let mut frequencies : HashMap<(i8, i8), i8> = HashMap::new();
 
         // Gathering frequencies
-        //println!("{}", run_length_values.len());
         for value in &run_length_values {
             let entry = frequencies.entry(*value).or_insert(0);
             *entry += 1;
             let (number, frequency) = *value;
-            //println!("(number, frequency): ({},{}) entry: {}", number, frequency, *entry);
         }
 
         // Ordering frequencies
@@ -480,12 +444,6 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
         let mut huffman_encoded_blocks : Vec<(Vec<String>, HuffmanTree)> = vec![];
 
         for block in img_blocks {
-            /*for value in &block {
-                for _ in 0..8 {
-                    print!(" {}", *value);
-                }
-                println!();
-            }*/
             
             huffman_encoded_blocks.push(
                 huffman_enconding(run_length_enconding(get_values_in_zigzag(block)))
@@ -494,7 +452,7 @@ pub fn statistical_enconding(img_blocks : ImageInBlocks<i8>) -> HuffmanEncodedBl
 
         return huffman_encoded_blocks;
     }
-    //println!("{}", img_blocks.0.len());
+
     return (final_func(img_blocks.0), final_func(img_blocks.1), final_func(img_blocks.2));
 }
 
